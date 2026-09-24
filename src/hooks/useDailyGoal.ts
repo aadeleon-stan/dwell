@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { hasEntryForDate } from '../db/entries';
 
-function todayLocal(): string {
+export function todayLocal(): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');

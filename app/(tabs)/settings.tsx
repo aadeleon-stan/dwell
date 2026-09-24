@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, Switch, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, ScrollView, Switch, Pressable, StyleSheet, Platform, Alert } from 'react-native';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useTheme } from '../../src/theme/ThemeContext';
 import WebTimePicker from '../../src/components/WebTimePicker';
 
@@ -10,12 +11,14 @@ if (Platform.OS !== 'web') {
 import { useSettings } from '../../src/settings/SettingsContext';
 import { typography } from '../../src/theme/typography';
 import { spacing } from '../../src/theme/spacing';
+import { exportBackup, pickBackup, restoreEntries } from '../../src/backup/backup';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 
 export default function SettingsScreen() {
   const { colors, isDark } = useTheme();
   const { settings, updateSettings } = useSettings();
+  const db = useSQLiteContext();
   const [editingTimeIndex, setEditingTimeIndex] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffset = useRef(0);
@@ -45,6 +48,45 @@ export default function SettingsScreen() {
   const dismissPicker = useCallback(() => {
     setEditingTimeIndex(null);
   }, []);
+
+  const handleExport = useCallback(async () => {
+    try {
+      await exportBackup(db, settings);
+    } catch {
+      Alert.alert('Export failed', 'Could not create the backup file.');
+    }
+  }, [db, settings]);
+
+  const handleImport = useCallback(async () => {
+    let backup;
+    try {
+      backup = await pickBackup();
+    } catch {
+      Alert.alert('Import failed', 'That file isn\'t a Dwell backup.');
+      return;
+    }
+    if (!backup) return;
+    const picked = backup;
+    Alert.alert(
+      'Restore backup?',
+      `This adds ${picked.entries.length} entries from ${picked.exportedAt.slice(0, 10)} and restores your settings. Entries that aren't in the backup are kept.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          onPress: async () => {
+            try {
+              const count = await restoreEntries(db, picked);
+              if (picked.settings) updateSettings(picked.settings);
+              Alert.alert('Restored', `${count} entries restored.`);
+            } catch {
+              Alert.alert('Import failed', 'Could not restore the backup.');
+            }
+          },
+        },
+      ],
+    );
+  }, [db, updateSettings]);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -165,6 +207,11 @@ export default function SettingsScreen() {
       fontSize: 16,
       fontWeight: '500',
       color: colors.accent,
+    },
+    actionText: {
+      ...typography.body,
+      color: colors.accent,
+      fontSize: 15,
     },
     tooltip: {
       ...typography.caption,
@@ -373,6 +420,22 @@ export default function SettingsScreen() {
           />
         </View>
       </View>
+
+      {/* Data */}
+      {Platform.OS !== 'web' && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>DATA</Text>
+          <Pressable style={styles.row} onPress={handleExport}>
+            <Text style={styles.rowLabel}>Export backup</Text>
+            <Text style={styles.actionText}>Share</Text>
+          </Pressable>
+          <Pressable style={styles.row} onPress={handleImport}>
+            <Text style={styles.rowLabel}>Restore from backup</Text>
+            <Text style={styles.actionText}>Choose file</Text>
+          </Pressable>
+          <Text style={styles.tooltip}>Save a copy of your entries before reinstalling or switching builds</Text>
+        </View>
+      )}
     </ScrollView>
   );
 }

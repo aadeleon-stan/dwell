@@ -73,6 +73,35 @@ export async function getDistinctWrittenDates(db: SQLiteDatabase): Promise<strin
   return rows.map((r) => r.d);
 }
 
+/** Every row, soft-deleted included, for backups. */
+export async function exportAllEntries(db: SQLiteDatabase): Promise<Entry[]> {
+  return db.getAllAsync<Entry>(`SELECT * FROM entries ORDER BY created_at`);
+}
+
+/**
+ * Insert or overwrite entries by id, so importing the same backup twice is
+ * harmless. Returns how many rows were written.
+ */
+export async function importEntries(db: SQLiteDatabase, entries: Entry[]): Promise<number> {
+  const valid = entries.filter(
+    (e) =>
+      typeof e.id === 'string' &&
+      typeof e.body === 'string' &&
+      (e.category === 'observation' || e.category === 'reflection') &&
+      typeof e.created_at === 'string' &&
+      typeof e.updated_at === 'string',
+  );
+  await db.withTransactionAsync(async () => {
+    for (const e of valid) {
+      await db.runAsync(
+        `INSERT OR REPLACE INTO entries (id, body, category, prompt, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [e.id, e.body, e.category, e.prompt ?? null, e.created_at, e.updated_at, e.deleted_at ?? null],
+      );
+    }
+  });
+  return valid.length;
+}
+
 function generateId(): string {
   const bytes = new Uint8Array(16);
   for (let i = 0; i < 16; i++) {

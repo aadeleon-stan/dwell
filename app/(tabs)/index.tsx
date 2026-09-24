@@ -136,7 +136,7 @@ export default function WriteScreen() {
         const { rescheduleNotifications } = await import('../../src/notifications/scheduler');
         await rescheduleNotifications({
           enabled: settings.remindersEnabled,
-          times: settings.reminderTimes,
+          times: settings.reminderTimes.slice(0, settings.reminderCount),
           jitter: settings.jitterEnabled,
           suppressToday: settings.suppressAfterWrite,
         });

@@ -39,6 +39,19 @@
 - Do NOT run on web — expo-sqlite doesn't support it
 - Use `--clear` flag after dependency changes to flush Metro cache
 
+## Building for iPhone
+- Native install via free Apple ID (Personal Team) + Xcode: plug in phone, `npm run ios:device` (prebuild + Release build, runs without Metro)
+- Free-team builds expire after 7 days — re-run `npm run ios:device` to refresh. Data (SQLite + AsyncStorage) survives reinstalls; only deleting the app wipes it
+- `ios/` and `android/` are generated (CNG) and gitignored — change native config via `app.json`/config plugins, never by editing `ios/`
+- `plugins/withoutPushEntitlement.js` strips `aps-environment` (added by expo-notifications); free teams can't sign it and the app only uses local notifications
+- Bundle ID `com.aadeleon.dwell` — keep it stable so builds install over each other
+- Later (paid account): `eas build -p ios --profile production --auto-submit` → TestFlight. Export a backup from Settings > Data before switching, since the signing team changes
+
+## Notifications
+- Reminders are one-shot DATE triggers for the next `NOTIFICATION_WINDOW_DAYS` (12) days, not DAILY triggers — iOS caps pending notifications at 64 (12 × max 5 = 60)
+- `useNotificationSetup` reschedules on launch, on settings changes, and whenever the app returns to foreground (rolls the window forward). If the app isn't opened for 12 days, reminders stop
+- "Suppress after writing" skips all of today's reminders when an entry exists for today; `rescheduleNotifications` calls are serialized to avoid duplicates
+
 ## Settings & Theme
 - Settings persist via AsyncStorage (`src/settings/settingsStorage.ts`)
 - `SettingsProvider` > `ThemeProvider` > `DatabaseProvider` nesting in root layout

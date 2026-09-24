@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { NOTIFICATION_TITLE, NOTIFICATION_BODY } from '../constants/config';
+import { NOTIFICATION_TITLE, NOTIFICATION_BODY, NOTIFICATION_WINDOW_DAYS } from '../constants/config';
 
 export interface NotificationOptions {
   enabled: boolean;
@@ -10,55 +10,55 @@ export interface NotificationOptions {
 }
 
 /**
- * Cancel all pending notifications and reschedule based on options.
- * Accepts either a NotificationOptions object or a boolean for legacy compat.
+ * Cancel all pending notifications and schedule one-shot reminders for the
+ * next NOTIFICATION_WINDOW_DAYS days. One-shot triggers (rather than DAILY)
+ * let today be skipped without affecting later days, and give each day its
+ * own jitter.
  */
-export async function rescheduleNotifications(options: NotificationOptions | boolean = false) {
-  if (Platform.OS === 'web') return;
+export function rescheduleNotifications(options: NotificationOptions): Promise<void> {
+  // Run one reschedule at a time — two overlapping cancel-then-schedule
+  // passes would leave duplicate reminders.
+  const run = queue.then(() => reschedule(options));
+  queue = run.catch(() => {});
+  return run;
+}
 
-  // Legacy boolean support
-  if (typeof options === 'boolean') {
-    options = {
-      enabled: true,
-      times: ['09:00', '13:00', '19:00'],
-      jitter: false,
-      suppressToday: options,
-    };
-  }
+let queue: Promise<void> = Promise.resolve();
+
+async function reschedule(options: NotificationOptions) {
+  if (Platform.OS === 'web') return;
 
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   if (!options.enabled) return;
 
-  for (const time of options.times) {
-    const [hourStr, minuteStr] = time.split(':');
-    let hour = parseInt(hourStr, 10);
-    let minute = parseInt(minuteStr, 10);
+  const now = new Date();
+  const earliest = now.getTime() + 60_000; // skip anything within the next minute
 
-    if (options.jitter) {
-      // Add random jitter of ±5 minutes, clamped to 0–59
-      const jitterMinutes = Math.floor(Math.random() * 11) - 5;
-      minute = Math.max(0, Math.min(59, minute + jitterMinutes));
+  for (let day = options.suppressToday ? 1 : 0; day < NOTIFICATION_WINDOW_DAYS; day++) {
+    for (const time of options.times) {
+      const [hourStr, minuteStr] = time.split(':');
+      const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + day,
+        parseInt(hourStr, 10), parseInt(minuteStr, 10));
+
+      if (options.jitter) {
+        // Shift by a random ±5 minutes, re-rolled for every reminder
+        const jitterMinutes = Math.floor(Math.random() * 11) - 5;
+        date.setMinutes(date.getMinutes() + jitterMinutes);
+      }
+
+      if (date.getTime() < earliest) continue;
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: NOTIFICATION_TITLE,
+          body: NOTIFICATION_BODY,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date,
+        },
+      });
     }
-
-    if (options.suppressToday) {
-      const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      const triggerMinutes = hour * 60 + minute;
-      // Skip if this time has already passed or is within the next minute
-      if (triggerMinutes <= currentMinutes + 1) continue;
-    }
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: NOTIFICATION_TITLE,
-        body: NOTIFICATION_BODY,
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour,
-        minute,
-      },
-    });
   }
 }
