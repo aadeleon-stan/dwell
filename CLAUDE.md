@@ -10,7 +10,7 @@
 - TypeScript 5.9, React 19.1, React Native 0.81
 
 ## Key Versions
-- Do NOT use react-native-reanimated v4 — it requires react-native-worklets which crashes in Expo Go. Use v3 or the built-in `Animated` API.
+- Do NOT add react-native-reanimated — v4 needs react-native-worklets (crashes in Expo Go) and v3 doesn't compile natively on RN 0.81. Use the built-in `Animated` API.
 - Do NOT use expo-symbols — use plain Text for tab icons.
 - Notification code must be wrapped in try/catch since it's unsupported in Expo Go.
 
@@ -40,7 +40,9 @@
 - Use `--clear` flag after dependency changes to flush Metro cache
 
 ## Building for iPhone
-- Native install via free Apple ID (Personal Team) + Xcode: plug in phone, `npm run ios:device` (prebuild + Release build, runs without Metro)
+- Native install via free Apple ID (Personal Team) + Xcode: plug in phone, `npm run ios:device` → `scripts/ios-device.sh` (prebuild, pod install, Release xcodebuild, devicectl install; runs without Metro). `expo run:ios` fails on Xcode 27 (can't find Simulator), hence the script
+- `plugins/withPodsMinDeploymentTarget.js` raises pods below iOS 15.1 — Xcode 27 rejects older deployment targets
+- `ios.appleTeamId` in app.json is the free Personal Team; change it when moving to a paid team
 - Free-team builds expire after 7 days — re-run `npm run ios:device` to refresh. Data (SQLite + AsyncStorage) survives reinstalls; only deleting the app wipes it
 - `ios/` and `android/` are generated (CNG) and gitignored — change native config via `app.json`/config plugins, never by editing `ios/`
 - `plugins/withoutPushEntitlement.js` strips `aps-environment` (added by expo-notifications); free teams can't sign it and the app only uses local notifications
@@ -69,7 +71,7 @@
 - Do NOT use `navigation.setOptions` to hide/show header or tab bar — it causes layout jumps and chrome that "pops" in. The Modal overlay approach avoids manipulating navigation chrome entirely.
 
 ## Conventions
-- Use `npm install --legacy-peer-deps` for dependency installs (peer dep conflicts with reanimated)
+- Use `npm install --legacy-peer-deps` if npm reports peer dependency conflicts
 - Animations use React Native's built-in `Animated` API, not reanimated
 - Log screen refreshes on focus via `useFocusEffect`
 - Save action dismisses keyboard and shows animated confirmation

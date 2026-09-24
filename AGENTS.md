@@ -5,5 +5,5 @@ This project uses Expo SDK 54. Read the versioned docs at https://docs.expo.dev/
 Key constraints:
 - SDK 54 = React 19.1 + React Native 0.81
 - Do NOT upgrade to SDK 55+ — Expo Go on App Store only supports up to SDK 54
-- Do NOT use reanimated v4 or react-native-worklets — use built-in Animated API
+- Do NOT add react-native-reanimated or react-native-worklets — use built-in Animated API
 - Notification APIs are unavailable in Expo Go — always wrap in try/catch

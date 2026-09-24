@@ -9,7 +9,8 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aadeleon.dwell"
+      "bundleIdentifier": "com.aadeleon.dwell",
+      "appleTeamId": "7VSXPHT7AS"
     },
     "android": {
       "adaptiveIcon": {
@@ -37,7 +38,8 @@
       ],
       "expo-asset",
       "@react-native-community/datetimepicker",
-      "./plugins/withoutPushEntitlement"
+      "./plugins/withoutPushEntitlement",
+      "./plugins/withPodsMinDeploymentTarget"
     ],
     "experiments": {
       "typedRoutes": true,
